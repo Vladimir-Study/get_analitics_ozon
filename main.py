@@ -47,9 +47,9 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
 
 
 async def main() -> None:
-    await get_analytic('155597', 'b5e85d8a-e803-433c-ac2f-23bc2c8f8ae6', dimension, metric_one,
+    await get_analytic(dimension, metric_one,
                        '2022-08-21', '2022-08-22', 'analytic_part_one')
-    await get_analytic('155597', 'b5e85d8a-e803-433c-ac2f-23bc2c8f8ae6', dimension, metric_two,
+    await get_analytic(dimension, metric_two,
                        '2022-08-21', '2022-08-22', 'analytic_part_two')
 
 
