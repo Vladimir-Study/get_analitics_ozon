@@ -1,5 +1,9 @@
 import asyncio
+from support_func import insert_date, get_account_list
 from pprint import pprint
+from analytic_part_one import get_analytic_one_in_db
+from analytic_part_two import get_analytic_two_in_db
+import os.path
 
 import aiohttp
 import json
@@ -13,6 +17,7 @@ metric_two = ['returns', 'cancellations', 'ordered_units', 'delivered_units', 'a
               'postings_premium'
               ]
 dimension = ['sku', 'day', 'category1', 'brand']
+actual_date = insert_date()
 
 
 async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: list, date_from, date_to,
@@ -40,17 +45,24 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
                     json=data
             ) as resp:
                 response = await resp.json()
-                with open(f'{file_name}.json', 'w', encoding='utf-8') as file:
-                    json.dump(response['result']['data'], file, indent=4)
+                if resp.status == 200:
+                    return response['result']['data']
+                else:
+                    print(response['message'])
+                    return []
     except Exception as E:
         print(f'Exception in get analytics: {E}')
 
 
 async def main() -> None:
-    await get_analytic(dimension, metric_one,
-                       '2022-08-21', '2022-08-22', 'analytic_part_one')
-    await get_analytic(dimension, metric_two,
-                       '2022-08-21', '2022-08-22', 'analytic_part_two')
+    account_list = await get_account_list()
+    for account in account_list:
+        lst_analytics_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
+                                               actual_date['date_from'], actual_date['date_to'], 'analytic_part_one')
+        await get_analytic_one_in_db(account['client_id'], lst_analytics_one)
+        lst_analytics_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
+                                               actual_date['date_from'], actual_date['date_to'], 'analytic_part_two')
+        await get_analytic_two_in_db(account['client_id'], lst_analytics_two)
 
 
 if __name__ == '__main__':

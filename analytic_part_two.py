@@ -26,7 +26,7 @@ async def request_generation(pool, analytic_data, api_id) -> None:
                        )
 
 
-async def get_analytic_two_in_db():
+async def get_analytic_two_in_db(client_id: str, lst_analytics: list):
     tasks = []
     async with asyncpg.create_pool(
             host='rc1b-itt1uqz8cxhs0c3d.mdb.yandexcloud.net',
@@ -38,15 +38,14 @@ async def get_analytic_two_in_db():
     ) as pool:
         count = 0
         chunk = 10
-        with open('analytic_part_one.json', 'r', encoding='utf-8') as file:
-            lst_analytics = json.load(file)
         for _ in lst_analytics:
             count += 1
-            task = asyncio.create_task(request_generation(pool, _, '155597'))
+            task = asyncio.create_task(request_generation(pool, _, client_id))
             tasks.append(task)
             if len(tasks) == chunk or count == len(lst_analytics):
                 await asyncio.gather(*tasks)
+                tasks = []
                 print(count)
 
 if __name__ == '__main__':
-    asyncio.get_event_loop().run_until_complete(get_analytic_two_in_db())
+    pass
