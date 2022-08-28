@@ -1,4 +1,7 @@
 import asyncio
+
+import asyncpg
+
 from support_func import insert_date, get_account_list
 from pprint import pprint
 from analytic_part_one import get_analytic_one_in_db
@@ -54,6 +57,27 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
         print(f'Exception in get analytics: {E}')
 
 
+async def delete_dublicate() -> None:
+    conn = await asyncpg.connect(
+        host='rc1b-itt1uqz8cxhs0c3d.mdb.yandexcloud.net',
+        port='6432',
+        database='market_db',
+        user=os.environ['DB_LOGIN'],
+        password=os.environ['DB_PASSWORD'],
+        ssl='require'
+    )
+    table_one = await conn.execute('DELETE FROM data_analytics_bydays1 WHERE ctid IN (SELECT ctid FROM (SELECT *, '
+                       'ctid, row_number()OVER (PARTITION BY sku_id ORDER BY id DESC) FROM data_analytics_bydays1)s '
+                       'WHERE row_number >= 2)'
+                       )
+    table_two = await conn.execute('DELETE FROM data_analytics_bydays2 WHERE ctid IN (SELECT ctid FROM (SELECT *, '
+                       'ctid, row_number()OVER (PARTITION BY sku_id ORDER BY id DESC) FROM data_analytics_bydays2)s '
+                       'WHERE row_number >= 2)'
+                       )
+    print('Deletion of duplicates in the table of orders is completed')
+    print(f'Table one: {table_one}, table two: {table_two}')
+
+
 async def main() -> None:
     account_list = await get_account_list()
     for account in account_list:
@@ -63,6 +87,7 @@ async def main() -> None:
         lst_analytics_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
                                                actual_date['date_from'], actual_date['date_to'], 'analytic_part_two')
         await get_analytic_two_in_db(account['client_id'], lst_analytics_two)
+    await delete_dublicate()
 
 
 if __name__ == '__main__':
