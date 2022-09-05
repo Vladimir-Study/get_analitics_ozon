@@ -24,7 +24,7 @@ actual_date = insert_date()
 
 
 async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: list, date_from, date_to,
-                       file_name: str, limit: int = 100) -> None:
+        file_name: str, limit: int = 1000, offset: int = 0) -> None:
     url = 'https://api-seller.ozon.ru/v1/analytics/data'
     headers = {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -38,7 +38,8 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
         'date_to': date_to,
         'metrics': metric,
         'dimension': dimensions,
-        'limit': limit
+        'limit': limit,
+        'offset': offset
     }
     try:
         async with aiohttp.ClientSession() as session:
@@ -80,13 +81,30 @@ async def delete_dublicate() -> None:
 
 async def main() -> None:
     account_list = await get_account_list()
+    len_list_one = 0
+    len_list_two = 0
     for account in account_list:
-        lst_analytics_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
-                                               actual_date['date_from'], actual_date['date_to'], 'analytic_part_one')
+        lst_analytics_one = [] 
+        lst_analytics_two = [] 
+        count_offset = 0
+        while len(lst_analytics_one) >= count_offset*1000:
+            part_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
+                                                   actual_date['date_from'], actual_date['date_to'], 'analytic_part_one',
+                                                   offset=count_offset*1000)
+            lst_analytics_one = [*lst_analytics_one, *part_one]
+            count_offset += 1
         await get_analytic_one_in_db(account['client_id'], lst_analytics_one)
-        lst_analytics_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
-                                               actual_date['date_from'], actual_date['date_to'], 'analytic_part_two')
+        len_list_one += len(lst_analytics_one)
+        count_offset = 0
+        while len(lst_analytics_two) >= count_offset*1000:
+            part_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
+                                                   actual_date['date_from'], actual_date['date_to'], 'analytic_part_two', 
+                                                   offset=count_offset*1000)
+            lst_analytics_two = [*lst_analytics_two, *part_two]
+            count_offset += 1
+        len_list_two += len(lst_analytics_two)
         await get_analytic_two_in_db(account['client_id'], lst_analytics_two)
+    print(f"Count one: {len_list_one}, two: {len_list_two}")
     await delete_dublicate()
 
 
