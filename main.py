@@ -67,11 +67,11 @@ async def delete_dublicate() -> None:
         ssl='require'
     )
     table_one = await conn.execute('DELETE FROM data_analytics_bydays1 WHERE ctid IN (SELECT ctid FROM (SELECT *, '
-                       'ctid, row_number()OVER (PARTITION BY sku_id ORDER BY id DESC) FROM data_analytics_bydays1)s '
+                       'ctid, row_number()OVER (PARTITION BY sku_id, date ORDER BY id DESC) FROM data_analytics_bydays1)s '
                        'WHERE row_number >= 2)'
                        )
     table_two = await conn.execute('DELETE FROM data_analytics_bydays2 WHERE ctid IN (SELECT ctid FROM (SELECT *, '
-                       'ctid, row_number()OVER (PARTITION BY sku_id ORDER BY id DESC) FROM data_analytics_bydays2)s '
+                       'ctid, row_number()OVER (PARTITION BY sku_id, date ORDER BY id DESC) FROM data_analytics_bydays2)s '
                        'WHERE row_number >= 2)'
                        )
     print('Deletion of duplicates in the table of orders is completed')
