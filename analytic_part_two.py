@@ -2,6 +2,7 @@ import asyncio
 import json
 import asyncpg
 import os
+import random
 from dotenv import load_dotenv
 from datetime import datetime
 from pprint import pprint
@@ -46,6 +47,7 @@ async def get_analytic_two_in_db(client_id: str, lst_analytics: list):
                 await asyncio.gather(*tasks)
                 tasks = []
                 print(count)
+
 
 if __name__ == '__main__':
     pass

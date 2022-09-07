@@ -1,7 +1,7 @@
 import asyncio
 
 import asyncpg
-
+import random
 from support_func import insert_date, get_account_list
 from pprint import pprint
 from analytic_part_one import get_analytic_one_in_db
@@ -49,11 +49,20 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
                     json=data
             ) as resp:
                 response = await resp.json()
-                if resp.status == 200:
-                    return response['result']['data']
-                else:
-                    print(response['message'])
-                    return []
+                count = 0
+                while count != 10:
+                    if resp.status == 200:
+                        count = 10
+                        return response['result']['data']
+                    elif response['message'] == 'You have reached request rate limit per minute':
+                        count += 1
+                        print(count)
+                        print(response['message'], f'Status code: {resp.status}', sep='\n')
+                        await asyncio.sleep(random.randint(20, 30))
+                    else:
+                        count += 1
+                        print(response['message'], f'Status code: {resp.status}', sep='\n')
+                return []
     except Exception as E:
         print(f'Exception in get analytics: {E}')
 
@@ -83,27 +92,32 @@ async def main() -> None:
     account_list = await get_account_list()
     len_list_one = 0
     len_list_two = 0
+    visited_account = []
     for account in account_list:
-        lst_analytics_one = [] 
-        lst_analytics_two = [] 
-        count_offset = 0
-        while len(lst_analytics_one) >= count_offset*1000:
-            part_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
-                                                   actual_date['date_from'], actual_date['date_to'], 'analytic_part_one',
-                                                   offset=count_offset*1000)
-            lst_analytics_one = [*lst_analytics_one, *part_one]
-            count_offset += 1
-        await get_analytic_one_in_db(account['client_id'], lst_analytics_one)
-        len_list_one += len(lst_analytics_one)
-        count_offset = 0
-        while len(lst_analytics_two) >= count_offset*1000:
-            part_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
-                                                   actual_date['date_from'], actual_date['date_to'], 'analytic_part_two', 
-                                                   offset=count_offset*1000)
-            lst_analytics_two = [*lst_analytics_two, *part_two]
-            count_offset += 1
-        len_list_two += len(lst_analytics_two)
-        await get_analytic_two_in_db(account['client_id'], lst_analytics_two)
+        if account['client_id'] not in visited_account:
+            lst_analytics_one = [] 
+            lst_analytics_two = [] 
+            count_offset = 0
+            while len(lst_analytics_one) >= count_offset*1000:
+                part_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
+                                                       actual_date['date_from'], actual_date['date_to'], 'analytic_part_one',
+                                                       offset=count_offset*1000)
+                lst_analytics_one = [*lst_analytics_one, *part_one]
+                count_offset += 1
+            await get_analytic_one_in_db(account['client_id'], lst_analytics_one)
+            len_list_one += len(lst_analytics_one)
+            count_offset = 0
+            while len(lst_analytics_two) >= count_offset*1000:
+                part_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
+                                                       actual_date['date_from'], actual_date['date_to'], 'analytic_part_two', 
+                                                       offset=count_offset*1000)
+                lst_analytics_two = [*lst_analytics_two, *part_two]
+                count_offset += 1
+            len_list_two += len(lst_analytics_two)
+            await get_analytic_two_in_db(account['client_id'], lst_analytics_two)
+            visited_account.append(account['client_id'])
+            print(visited_account)
+        continue
     print(f"Count one: {len_list_one}, two: {len_list_two}")
     await delete_dublicate()
 

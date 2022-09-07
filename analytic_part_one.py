@@ -2,6 +2,7 @@ import asyncio
 import json
 import asyncpg
 import os
+import random
 from dotenv import load_dotenv
 from datetime import datetime
 from pprint import pprint
