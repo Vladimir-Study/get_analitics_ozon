@@ -39,7 +39,7 @@ async def get_analytic_one_in_db(client_id: str, lst_analytics: list):
             ssl='require'
     ) as pool:
         count = 0
-        chunk = 100
+        chunk = 1000
         for _ in lst_analytics:
             count += 1
             task = asyncio.create_task(request_generation(pool, _, client_id))
