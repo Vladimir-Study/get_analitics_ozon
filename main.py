@@ -7,6 +7,8 @@ from pprint import pprint
 from analytic_part_one import get_analytic_one_in_db
 from analytic_part_two import get_analytic_two_in_db
 import os.path
+from pprint import pprint
+from datetime import datetime
 
 import aiohttp
 import json
@@ -95,64 +97,83 @@ async def main() -> None:
     len_list_one = 0
     len_list_two = 0
     visited_account = []
-    for account in account_list:
-        if account['client_id'] not in visited_account:
-            lst_analytics_one = [] 
-            lst_analytics_two = []
-            count_offset = 0
-            len_orders = 1000
-            repeat = 0
-            while len_orders == 1000:
-                print(count_offset)
-                part_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
-                                                       actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
-                if len(part_one) == 1 and part_one[0] == 'Repeat':
-                    repeat += 1
-                    if repeat == 10:
-                        break
-                    print(f'Part one: offset = {count_offset}, repeat = {repeat}')
+    analitic_log = []
+    try:
+        for account in account_list:
+            analitic_log.append({'date': datetime.today().strftime('%x-%X')})
+            api_id_dict = {'api_id': account['client_id']}
+            analitic_log[-1] = {**analitic_log[-1], **api_id_dict}
+            if account['client_id'] not in visited_account:
+                lst_analytics_one = [] 
+                lst_analytics_two = []
+                count_offset = 0
+                len_orders = 1000
+                repeat = 0
+                while len_orders == 1000:
+                    print(count_offset)
+                    part_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
+                                                           actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
+                    if len(part_one) == 1 and part_one[0] == 'Repeat':
+                        repeat += 1
+                        if repeat == 10:
+                            break
+                        print(f'Part one: offset = {count_offset}, repeat = {repeat}')
+                        count_offset += 1
+                        continue
+                    else:
+                        repeat = 0
+                    if (len(part_one) >= 1 and part_one[0] != 'Repeat') or part_one == []:
+                        lst_analytics_one = [*lst_analytics_one, *part_one]
+                        print(f'Len one: {len(lst_analytics_one)}')
+                        len_orders = len(part_one)
                     count_offset += 1
-                    continue
+                if lst_analytics_one != []:
+                    metric_dict_one = {'dataset1': len(lst_analytics_one)}
+                    analitic_log[-1] = {**analitic_log[-1], **metric_dict_one}
+                    await get_analytic_one_in_db(account['client_id'], lst_analytics_one)
                 else:
-                    repeat = 0
-                if (len(part_one) != 1 and part_one[0] != 'Repeat') or part_one == []:
-                    lst_analytics_one = [*lst_analytics_one, *part_one]
-                    print(f'Len one: {len(lst_analytics_one)}')
-                    len_orders = len(part_one)
-                count_offset += 1
-            if lst_analytics_one != []:
-                await get_analytic_one_in_db(account['client_id'], lst_analytics_one)
-            else:
-                print('Count order part one = 0')
-            count_offset = 0
-            len_orders = 1000
-            repeat = 0
-            while len_orders == 1000:
-                print(count_offset)
-                part_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
-                                                       actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
-                if len(part_two) == 1 and part_two[0] == 'Repeat':
-                    repeat += 1
-                    if repeat == 10:
-                        break
-                    print(f'Part two: offset = {count_offset}, repeat = {repeat}')
+                    metric_dict_one = {'dataset1': len(lst_analytics_one)}
+                    analitic_log[-1] = {**analitic_log[-1], **metric_dict_one}
+                    print('Count order part one = 0')
+                len_list_one += len(lst_analytics_one)
+                count_offset = 0
+                len_orders = 1000
+                repeat = 0
+                while len_orders == 1000:
+                    print(count_offset)
+                    part_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
+                                                           actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
+                    if len(part_two) == 1 and part_two[0] == 'Repeat':
+                        repeat += 1
+                        if repeat == 10:
+                            break
+                        print(f'Part two: offset = {count_offset}, repeat = {repeat}')
+                        count_offset += 1
+                        continue
+                    else:
+                        repeat = 0
+                    if (len(part_two) >= 1 and part_two[0] != 'Repeat') or part_two == []:
+                        lst_analytics_two = [*lst_analytics_two, *part_two]
+                        print(f'Len two: {len(lst_analytics_two)}')
+                        len_orders = len(part_two)
                     count_offset += 1
-                    continue
+                if lst_analytics_two != []:
+                    metric_dict_two = {'dataset2': len(lst_analytics_two)}
+                    analitic_log[-1] = {**analitic_log[-1], **metric_dict_two}
+                    await get_analytic_two_in_db(account['client_id'], lst_analytics_two)
                 else:
-                    repeat = 0
-                if len(part_two) != 1 and part_two[0] != 'Repeat' or part_two == []:
-                    lst_analytics_two = [*lst_analytics_two, *part_two]
-                    print(f'Len two: {len(lst_analytics_two)}')
-                    len_orders = len(part_two)
-                count_offset += 1
-            if lst_analytics_two != []:
-                await get_analytic_two_in_db(account['client_id'], lst_analytics_two)
-            len_list_two += len(lst_analytics_two)
-            visited_account.append(account['client_id'])
-            print(visited_account)
-        continue
-    print(f"Count one: {len_list_one}, two: {len_list_two}")
-    await delete_dublicate()
+                    metric_dict_two = {'dataset2': len(lst_analytics_two)}
+                    analitic_log[-1] = {**analitic_log[-1], **metric_dict_two}
+                    print('Count order part two = 0')
+                len_list_two += len(lst_analytics_two)
+                visited_account.append(account['client_id'])
+                print(visited_account)
+            continue
+        print(f"Count one: {len_list_one}, two: {len_list_two}")
+        pprint(analitic_log)
+        await delete_dublicate()
+    except Exception as E:
+        print(f'Error: {E}')
 
 
 if __name__ == '__main__':
