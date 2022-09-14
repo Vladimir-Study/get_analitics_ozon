@@ -43,18 +43,22 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
         'limit': limit,
         'offset': offset
     }
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    url=url,
-                    headers=headers,
-                    json=data
-            ) as resp:
-                count = 0
-                while count != 10:
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                url=url,
+                headers=headers,
+                json=data
+        ) as resp:
+            count = 0
+            while count != 10:
+                try:
                     response = await resp.json()
+                    print(response)
                     if resp.status == 200:
-                        return response['result']['data']
+                        if 'result' in response.keys():
+                            return response['result']['data']
+                        else:
+                            return ['Repeat', f"Status code: {resp.status}. Message: {response['message']}"]
                     elif resp.status == 429:
                         print(count)
                         print(response['message'], f'Status code: {resp.status}', sep='\n')
@@ -63,12 +67,14 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
                         if count < 10:
                             continue
                         else:
-                            return ['Repeat']
+                            return ['Repeat', f"Status code: {resp.status}. Message: {response['message']}"]
                     else:
                         print(response['message'], f'Status code: {resp.status}', sep='\n')
-                        return ['Repeat']
-    except Exception as E:
-        print(f'Exception in get analytics: {E}')
+                        return ['Repeat', f"Status code: {resp.status}. Message: {response['message']}"]
+            except ContentTypeError:
+                break
+            except Exception as E:
+                print(f'Exception in get analytics: {E}')
 
 
 async def delete_dublicate() -> None:
@@ -110,23 +116,28 @@ async def main() -> None:
                 len_orders = 1000
                 repeat = 0
                 while len_orders == 1000:
-                    print(count_offset)
-                    part_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
-                                                           actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
-                    if len(part_one) == 1 and part_one[0] == 'Repeat':
-                        repeat += 1
-                        if repeat == 10:
-                            break
-                        print(f'Part one: offset = {count_offset}, repeat = {repeat}')
+                    try:
+                        print(count_offset)
+                        part_one = await get_analytic(account['client_id'], account['api_key'], dimension, metric_one,
+                                                               actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
+                        if len(part_one) == 2 and part_one[0] == 'Repeat':
+                            repeat += 1
+                            error = {'Error': part_one[1]}
+                            analitic_log[-1] = {**analitic_log[-1], **error}
+                            if repeat == 10:
+                                break
+                            print(f'Part one: offset = {count_offset}, repeat = {repeat}')
+                            count_offset += 1
+                            continue
+                        else:
+                            repeat = 0
+                        if (len(part_one) >= 1 and part_one[0] != 'Repeat') or part_one == []:
+                            lst_analytics_one = [*lst_analytics_one, *part_one]
+                            print(f'Len one: {len(lst_analytics_one)}')
+                            len_orders = len(part_one)
                         count_offset += 1
-                        continue
-                    else:
-                        repeat = 0
-                    if (len(part_one) >= 1 and part_one[0] != 'Repeat') or part_one == []:
-                        lst_analytics_one = [*lst_analytics_one, *part_one]
-                        print(f'Len one: {len(lst_analytics_one)}')
-                        len_orders = len(part_one)
-                    count_offset += 1
+                    except Exception as E:
+                        print(f'Error while one: {E}')
                 if lst_analytics_one != []:
                     metric_dict_one = {'dataset1': len(lst_analytics_one)}
                     analitic_log[-1] = {**analitic_log[-1], **metric_dict_one}
@@ -140,23 +151,28 @@ async def main() -> None:
                 len_orders = 1000
                 repeat = 0
                 while len_orders == 1000:
-                    print(count_offset)
-                    part_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
-                                                           actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
-                    if len(part_two) == 1 and part_two[0] == 'Repeat':
-                        repeat += 1
-                        if repeat == 10:
-                            break
-                        print(f'Part two: offset = {count_offset}, repeat = {repeat}')
+                    try:
+                        print(count_offset)
+                        part_two = await get_analytic(account['client_id'], account['api_key'], dimension, metric_two,
+                                                               actual_date['date_from'], actual_date['date_to'], offset=count_offset*1000)
+                        if len(part_two) == 2 and part_two[0] == 'Repeat':
+                            repeat += 1
+                            error = {'Error': part_one[1]}
+                            analitic_log[-1] = {**analitic_log[-1], **error}
+                            if repeat == 10:
+                                break
+                            print(f'Part two: offset = {count_offset}, repeat = {repeat}')
+                            count_offset += 1
+                            continue
+                        else:
+                            repeat = 0
+                        if (len(part_two) >= 1 and part_two[0] != 'Repeat') or part_two == []:
+                            lst_analytics_two = [*lst_analytics_two, *part_two]
+                            print(f'Len two: {len(lst_analytics_two)}')
+                            len_orders = len(part_two)
                         count_offset += 1
-                        continue
-                    else:
-                        repeat = 0
-                    if (len(part_two) >= 1 and part_two[0] != 'Repeat') or part_two == []:
-                        lst_analytics_two = [*lst_analytics_two, *part_two]
-                        print(f'Len two: {len(lst_analytics_two)}')
-                        len_orders = len(part_two)
-                    count_offset += 1
+                    except Exception as E:
+                        print(f'Error while two: {E}')
                 if lst_analytics_two != []:
                     metric_dict_two = {'dataset2': len(lst_analytics_two)}
                     analitic_log[-1] = {**analitic_log[-1], **metric_dict_two}
