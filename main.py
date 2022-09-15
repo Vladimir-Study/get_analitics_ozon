@@ -11,8 +11,8 @@ from pprint import pprint
 from datetime import datetime
 
 import aiohttp
+from aiohttp import client_exceptions
 import json
-
 metric_one = ['hits_view_search', 'hits_view_pdp', 'hits_view', 'hits_tocart_search',
               'hits_tocart_pdp', 'hits_tocart', 'session_view_search', 'session_view_pdp', 'session_view',
               'conv_tocart_search', 'conv_tocart_pdp', 'conv_tocart', 'revenue'
@@ -53,7 +53,6 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
             while count != 10:
                 try:
                     response = await resp.json()
-                    print(response)
                     if resp.status == 200:
                         if 'result' in response.keys():
                             return response['result']['data']
@@ -71,10 +70,11 @@ async def get_analytic(client_id: str, api_key: str, dimensions: list, metric: l
                     else:
                         print(response['message'], f'Status code: {resp.status}', sep='\n')
                         return ['Repeat', f"Status code: {resp.status}. Message: {response['message']}"]
-            except ContentTypeError:
-                break
-            except Exception as E:
-                print(f'Exception in get analytics: {E}')
+                except client_exceptions as CE:
+                    print(f'Exception in get analytics: {CE}')
+                    continue
+                except Exception as E:
+                    print(f'Exception in get analytics: {E}')
 
 
 async def delete_dublicate() -> None:
